@@ -1,4 +1,5 @@
 #pragma once 
 #include "defs.h"
-void execute_command(char **args);
+#include "parser.h"
+void execute_command(Command *cmd);
 

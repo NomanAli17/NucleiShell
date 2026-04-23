@@ -1,10 +1,13 @@
-#include "defs.h"
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 #include "executor.h"
-void execute_command(char **args){
+#include "defs.h"
+#include "parser.h"
+void execute_command(Command *cmd){
 	pid_t pid=fork();
 	if(pid<0){
 		perror("fork");
@@ -12,9 +15,27 @@ void execute_command(char **args){
 	}
 	if(pid==0){
 		/* Child Process replace krdeta hai apne apko execvp ke sath */
-		execvp(args[0],args);
-		/* If execvp returns means ke koi command hi nhi hai aisi */
-		fprintf(stderr,"My_Shell : %s : No Command Found\n",args[0]);
+		if(cmd->in_file){
+			int fd=open(cmd->in_file,O_RDONLY);
+			if(fd<0){
+				perror(cmd->in_file);
+				exit(1);
+			}
+			dup2(fd,STDIN_FILENO);
+			close(fd);
+		}
+		if(cmd->out_file){
+			int flags=O_WRONLY | O_CREAT | (cmd->append ? O_APPEND : O_TRUNC);
+			int fd=open(cmd->out_file,flags,0644);
+			if(fd<0){
+				perror(cmd->out_file);
+				exit(1);
+			}
+			dup2(fd,STDOUT_FILENO);
+			close(fd);
+		}
+		execvp(cmd->args[0],cmd->args);
+		fprintf(stderr,"My_Shell : %s: No command found\n",cmd->args[0]);
 		exit(1);
 	}
 	int status;
