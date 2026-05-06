@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include "history.h"
+#include "jobs.h"
 #include "defs.h"
 #include "builtins.h"
 /* Builtin commands ko child process ke andar nhi chalana cause they effect shell environment */
@@ -11,7 +15,40 @@ int is_builtin(char **args){
 	if(strcmp(args[0],"pwd")==0) return 1;
 	if(strcmp(args[0],"export")==0) return 1;
 	if(strcmp(args[0],"echo")==0) return 1;
+	if(strcmp(args[0],"fg")==0) return 1;
+	if(strcmp(args[0],"jobs")==0) return 1;
+	if(strcmp(args[0],"history")==0) return 1;
 	return 0;
+}
+void builtin_history(char **args){
+	if(args[1]!=NULL){
+		int n=atoi(args[1]);
+		print_history(n);
+	}else{
+		print_history(-1);
+	}
+}
+void builtin_fg(char **args){
+	if(args[1]==NULL){
+		fprintf(stderr,"fg:missing argument. Use fg #PID\n");
+		return;
+	}
+	char *pid_str=args[1];
+	if(pid_str[0]=='#') pid_str++;
+	pid_t pid=atoi(pid_str);
+	if(kill(pid,0)!=0){
+		fprintf(stderr,"fg: no such process %d\n",pid);
+		return;
+	}
+	for(int i=0;i<njobs;i++){
+		if(jobs[i].pid==pid){
+			printf("%s\n",jobs[i].cmd);
+			break;
+		}
+	}
+	int status;
+	waitpid(pid,&status,0);
+	remove_job(pid);
 }
 void builtin_cd(char **args){
 	const char* path;
@@ -70,4 +107,7 @@ void handle_builtin(char **args){
 	else if(strcmp(args[0],"pwd")==0) builtin_pwd();
 	else if(strcmp(args[0],"export")==0) builtin_export(args);
 	else if(strcmp(args[0],"echo")==0) builtin_echo(args);
+	else if(strcmp(args[0],"fg")==0) builtin_fg(args);
+	else if(strcmp(args[0],"jobs")==0) list_jobs();
+	else if(strcmp(args[0],"history")==0) builtin_history(args);
 }

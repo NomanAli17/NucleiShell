@@ -28,6 +28,8 @@ static void parse_command(char **tokens,int count,Command *cmd){
 //Now yahan pe hum | dekhte hi command split krdete cause pipe agaya aur uske piche wale sare us command ke argument honge
 int parse_input(char *input,Pipeline *pipeline){
 	pipeline->num_cmds=0;
+	pipeline->background=0;
+	strncpy(pipeline->raw_input,input,MAX_INPUT-1);
 	char *all_tokens[MAX_ARGS];
 	int total=0;
 	char *token=strtok(input," \t");
@@ -36,6 +38,10 @@ int parse_input(char *input,Pipeline *pipeline){
 		token=strtok(NULL," \t");	
 	}
 	if(total==0) return 0;
+	if(strcmp(all_tokens[total-1],"&")==0){
+		pipeline->background=1;
+		total--;
+	}
 	int start=0;
 	for(int i=0;i<=total;i++){
 		if(i==total || strcmp(all_tokens[i],"|")==0){

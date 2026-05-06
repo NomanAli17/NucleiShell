@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include "jobs.h"
 #include "executor.h"
 #include "defs.h"
 #include "parser.h"
@@ -36,6 +37,7 @@ void execute_command(Command *cmd){
 	}
 	if(pid==0){
 		/* Child Process replace krdeta hai apne apko execvp ke sath */
+		signal(SIGINT,SIG_DFL);//the termination will occur for child process
 		apply_redirection(cmd);
 		execvp(cmd->args[0],cmd->args);
 		fprintf(stderr,"My_Shell : %s: No command found\n",cmd->args[0]);
@@ -47,7 +49,8 @@ void execute_command(Command *cmd){
 /* fork se yeh faida huwa ke sirf yeh command fail hogi baki shell work krta rahega */
 void execute_pipeline(Pipeline *pipeline){
 	int n=pipeline->num_cmds;
-	if(n==1){
+	int bg=pipeline->background;
+	if(n==1 && !bg){
 		execute_command(&pipeline->cmds[0]);
 		return;
 	}
@@ -66,6 +69,7 @@ void execute_pipeline(Pipeline *pipeline){
 			return;
 		}
 		if(pids[i]==0){
+			signal(SIGINT,SIG_DFL);
 			if(i>0){
 				dup2(pipes[i-1][0],STDIN_FILENO);
 			}
@@ -77,6 +81,7 @@ void execute_pipeline(Pipeline *pipeline){
 				close(pipes[j][0]);
 				close(pipes[j][1]);
 			}
+			if(bg) setsid();
 			apply_redirection(&pipeline->cmds[i]);
 			execvp(pipeline->cmds[i].args[0],pipeline->cmds[i].args);
 			fprintf(stderr,"My_Shell : %s: No command found\n",pipeline->cmds[i].args[0]);
@@ -87,7 +92,12 @@ void execute_pipeline(Pipeline *pipeline){
 		close(pipes[j][0]);
 		close(pipes[j][1]);
 	}
-	for(int i=0;i<n;i++){
-		waitpid(pids[i],NULL,0);
-	}		
+	if(bg){
+		printf("[1] %d\n",pids[n-1]);
+		add_job(pids[n-1],pipeline->raw_input);
+	}else{
+		for(int i=0;i<n;i++){
+			waitpid(pids[i],NULL,0);
+		}
+	}	
 }

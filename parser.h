@@ -10,5 +10,7 @@ typedef struct{
 typedef struct{
 	Command cmds[MAX_ARGS];
 	int num_cmds;
-}Pipeline;
+	int background;
+	char raw_input[MAX_INPUT];
+} Pipeline;
 int parse_input(char *input,Pipeline *pipeline);
